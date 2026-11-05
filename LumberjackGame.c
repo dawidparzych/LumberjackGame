@@ -3,18 +3,19 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define TREE_HEIHGT 9
-#define TREE_WIDTH 2
-#define BRANCH_SIZE 42
+#define TREE_HEIHGT 8
+#define TREE_WIDTH 3
+#define CELL_SIZE 80
 #define BRANCH_TYPES 2
 
-const char branch_chars[BRANCH_TYPES] = {'#', ' '};
+const char branch_chars[BRANCH_TYPES] = {'X', ' '};
 
 char tree[TREE_HEIHGT][TREE_WIDTH];
 
 Vector2 grid_origin;
 int score = 0;
 int best_score = 0;
+Texture2D player_sprite, branch_sprite, tree_sprite;
 
 // funkcja losujaca galaz
 char random_branch() {
@@ -25,15 +26,15 @@ char random_branch() {
 void init_tree() {
     for (int i = 0; i < TREE_HEIHGT; i++){
         tree[i][0] = random_branch();               // losowe galezie
-        if (tree[i][0] == '#') tree[i][1] = ' ';    // jezeli w ktoryms z wierszy jest galaz to po drugiej stronie nie ma galezi
-        if (tree[i][1] == '#') tree[i][0] = ' ';    //
+        if (tree[i][0] == 'X') tree[i][2] = ' ';    // jezeli w ktoryms z wierszy jest galaz to po drugiej stronie nie ma galezi
+        if (tree[i][1] == 'X') tree[i][0] = ' ';    //
     }
 
     tree[TREE_HEIHGT-1][0] = 'P';                   // inicjalizacja gracza
-    tree[TREE_HEIHGT-1][1] = ' ';
+    tree[TREE_HEIHGT-1][2] = ' ';
 
-    int grid_width = TREE_WIDTH * BRANCH_SIZE;      // szerokosc calego grid drzewa
-    int grid_height = TREE_HEIHGT * BRANCH_SIZE;    // wysokosc calego grid drzewa
+    int grid_width = TREE_WIDTH * CELL_SIZE;      // szerokosc calego grid drzewa
+    int grid_height = TREE_HEIHGT * CELL_SIZE;   // wysokosc calego grid drzewa
 
     grid_origin = (Vector2){                        // 
         (GetScreenWidth() - grid_width) / 2,        // wysrodkowanie drzewa
@@ -42,8 +43,8 @@ void init_tree() {
 }
 
 bool isSplittable(int dir){                         // sprawdzenie czy drzewo mozna przeciac
-    if (dir == 0 && tree[TREE_HEIHGT-2][0] == '#') return false;
-    if (dir == 1 && tree[TREE_HEIHGT-2][1] == '#') return false;
+    if (dir == 0 && tree[TREE_HEIHGT-2][0] == 'X') return false;
+    if (dir == 1 && tree[TREE_HEIHGT-2][2] == 'X') return false;
     else return true;
 }
 
@@ -51,13 +52,13 @@ void move_tree() {                                  // funkcja 'przesuwajaca' ws
     for (int i = TREE_HEIHGT - 1; i > 0; i--){          // przesuniecie wszystkiego w dol
         int tmp = tree[i-1][0];
         tree[i][0] = tmp;
-        tmp = tree[i-1][1];
-        tree[i][1] = tmp;
+        tmp = tree[i-1][2];
+        tree[i][2] = tmp;
     }
     tree[0][0] = random_branch();                       // losowe galezie na samej gorze
-    tree[0][1] = random_branch();
-    if (tree[0][0] == '#') tree[0][1] = ' ';
-    if (tree[0][1] == '#') tree[0][0] = ' ';
+    tree[0][2] = random_branch();
+    if (tree[0][0] == 'X') tree[0][2] = ' ';
+    if (tree[0][2] == 'X') tree[0][0] = ' ';
 }
 
 void reset() {                                      // funkcja resetujaca drzewo i sprawdzajaca best score
@@ -67,12 +68,16 @@ void reset() {                                      // funkcja resetujaca drzewo
 }
 
 int main(void) {
-    const int screen_width = 800;
-    const int screen_height = 450;
+    const int screen_width = 1000;
+    const int screen_height = 1000;
 
     InitWindow(screen_width, screen_height, "Lumberjack Game");
     SetTargetFPS(60);
     srand(time(NULL));
+
+    player_sprite = LoadTexture("resources/Player_sprite.png");
+    branch_sprite = LoadTexture("resources/Branch_sprite.png"); 
+    tree_sprite = LoadTexture("resources/Tree_sprite.png");
 
     init_tree();
 
@@ -91,7 +96,7 @@ int main(void) {
             if (!isSplittable(dir)) reset();
             else {
                 move_tree();
-                tree[TREE_HEIHGT-1][1] = 'P';
+                tree[TREE_HEIHGT-1][2] = 'P';
                 score += 1;
             } 
         }
@@ -100,19 +105,30 @@ int main(void) {
 
         for (int i = 0; i < TREE_HEIHGT; i++) {
             for (int j = 0; j < TREE_WIDTH; j++) {
-                Rectangle rect = {
-                    grid_origin.x + (j * BRANCH_SIZE),
-                    grid_origin.y + (i * BRANCH_SIZE),
-                    BRANCH_SIZE,
-                    BRANCH_SIZE
-                };
+                Rectangle rect = (Rectangle){
+                    grid_origin.x + (j * CELL_SIZE),
+                    grid_origin.y + (i * CELL_SIZE),
+                    CELL_SIZE, CELL_SIZE};
 
-                DrawRectangleLinesEx(rect, 1, DARKGRAY);
+                Rectangle source_rect = (Rectangle){0,0,16, 16};
+                Rectangle source_rect_flipped = (Rectangle){0,0,-16, 16};
+                
+                if (j == 1) DrawTexturePro(tree_sprite, source_rect, rect, (Vector2){0,0},0,WHITE);
 
-                DrawTextEx(
-                    GetFontDefault(),
-                    TextFormat("%c", tree[i][j]),
-                    (Vector2) {rect.x + 12, rect.y + 8}, 20, 1, WHITE);
+                if (tree[i][j] == 'X' && j == 0) {
+                    // DrawRectanglePro(rect, (Vector2){0,0}, 0, RED);
+                    DrawTexturePro(branch_sprite, source_rect, rect, (Vector2){0,0},0,WHITE);
+                } else if(tree[i][j] == 'X' && j == 2) {
+                    DrawTexturePro(branch_sprite, source_rect_flipped, rect, (Vector2){0,0},0,WHITE);
+                }
+
+                if (tree[i][j] == 'P' && j == 0) {
+                    //DrawRectanglePro(rect, (Vector2){0,0}, 0, WHITE);
+                    DrawTexturePro(player_sprite, source_rect_flipped, rect, (Vector2){0,0},0,WHITE);
+                } else if(tree[i][j] == 'P' && j == 2) {
+                    DrawTexturePro(player_sprite, source_rect, rect, (Vector2){0,0},0,WHITE);
+                }
+                // DrawRectangleLinesEx(rect, 1, DARKGRAY);
             }
         }
 
