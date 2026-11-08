@@ -5,7 +5,7 @@
 
 #define TREE_HEIHGT 8
 #define TREE_WIDTH 3
-#define CELL_SIZE 80
+#define CELL_SIZE 125
 #define BRANCH_TYPES 2
 
 const char branch_chars[BRANCH_TYPES] = {'X', ' '};
@@ -13,10 +13,14 @@ const char branch_chars[BRANCH_TYPES] = {'X', ' '};
 char tree[TREE_HEIHGT][TREE_WIDTH];
 
 Vector2 grid_origin;
+Vector2 hp_bar_size;
+Vector2 hp_origin;
 int score = 0;
 int best_score = 0;
 Texture2D player_sprite, branch_sprite, tree_sprite;
 bool gameover = false;
+float time_limit = 5.0f;
+float timer;
 
 // funkcja losujaca galaz
 char random_branch() {
@@ -68,10 +72,17 @@ void reset() {                                      // funkcja resetujaca drzewo
     init_tree();
 }
 
+void reset_timer(){
+    timer = time_limit;
+}
+
 int main(void) {
     const int screen_width = 1000;
     const int screen_height = 1000;
 
+    hp_bar_size = (Vector2){screen_width / 2, screen_height / 15};
+    hp_origin = (Vector2){(screen_width - hp_bar_size.x) / 2, 20};
+    
     InitWindow(screen_width, screen_height, "Lumberjack Game");
     SetTargetFPS(60);
     srand(time(NULL));
@@ -82,16 +93,24 @@ int main(void) {
 
     int gameoverWidth = MeasureText("GAME OVER", 64);
 
+    reset_timer();
+
     init_tree();
 
     while (!WindowShouldClose()) {
         if(!gameover){
+            if (score >= 100 && score < 200) time_limit = 4.0f;
+            if (score >= 200) time_limit = 3.0f;
+            timer -= GetFrameTime();
+            if (timer <= 0.0f) gameover = true;
             if (IsKeyPressed(KEY_A) || IsKeyPressed(KEY_LEFT)) {
                 int dir = 0;
                 if (!isSplittable(dir)) gameover = true;
                 else {
                     move_tree(tree);
                     tree[TREE_HEIHGT-1][0] = 'P';
+                    timer += 0.2f;
+                    if (timer > time_limit) timer = time_limit;
                     score += 1;
                 }
             }
@@ -101,12 +120,15 @@ int main(void) {
                 else {
                     move_tree(tree);
                     tree[TREE_HEIHGT-1][2] = 'P';
+                    timer += 0.2f;
+                    if (timer > time_limit) timer = time_limit;
                     score += 1;
                 } 
             }
             BeginDrawing();
             ClearBackground(BLACK);
-
+            Rectangle hp_bar_rect = (Rectangle){hp_origin.x, hp_origin.y, hp_bar_size.x, hp_bar_size.y};
+            Rectangle timer_rect = (Rectangle){hp_origin.x, hp_origin.y, hp_bar_size.x * (timer/time_limit), hp_bar_size.y};
             for (int i = 0; i < TREE_HEIHGT; i++) {
                 for (int j = 0; j < TREE_WIDTH; j++) {
                     Rectangle rect = (Rectangle){
@@ -116,6 +138,7 @@ int main(void) {
 
                     Rectangle source_rect = (Rectangle){0,0,16, 16};
                     Rectangle source_rect_flipped = (Rectangle){0,0,-16, 16};
+                    
                     
                     if (j == 1) DrawTexturePro(tree_sprite, source_rect, rect, (Vector2){0,0},0,WHITE);
 
@@ -138,11 +161,11 @@ int main(void) {
 
             DrawText(TextFormat("SCORE: %d", score), 20, 20, 24, YELLOW);
             DrawText(TextFormat("BEST SCORE: %d", best_score), screen_width-220, 20, 24, YELLOW);
-
+            DrawRectangleRec(timer_rect, RED);
+            DrawRectangleLinesEx(hp_bar_rect, 2, RED);
             EndDrawing();
         }
         else {
-            reset();
             BeginDrawing();
             ClearBackground(BLACK);
             DrawText(TextFormat("SCORE: %d", score), 20, 20, 24, YELLOW);
@@ -150,7 +173,11 @@ int main(void) {
             DrawText(TextFormat("GAME OVER"), (screen_width-gameoverWidth)/2, (screen_height-40)/2, 64, YELLOW);
             DrawText(TextFormat("Press [R] to restart."), (screen_width-gameoverWidth+40)/2, (screen_height+200)/2, 32, YELLOW);
             EndDrawing();
-            if (IsKeyReleased(KEY_R)) gameover = false;;
+            if (IsKeyReleased(KEY_R)) {
+                gameover = false; 
+                reset_timer();
+                reset();
+            }
         }
     }
     CloseWindow();
